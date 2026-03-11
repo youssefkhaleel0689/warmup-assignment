@@ -409,7 +409,64 @@ function getRequiredHoursPerMonth(textFile, rateFile, bonusCount, driverID, mont
 // Returns: integer (net pay)
 // ============================================================
 function getNetPay(driverID, actualHours, requiredHours, rateFile) {
-    // TODO: Implement this function
+    // Step 1: Get basePay and tier from rateFile
+    let rateContent = fs.readFileSync(rateFile, "utf8");
+    let rateLines = rateContent.split("\n").filter(line => line.trim() !== "");
+
+    let basePay = 0;
+    let tier    = 0;
+
+    for (let i = 0; i < rateLines.length; i++) {
+        let cols = rateLines[i].split(",").map(col => col.trim());
+        if (cols[0] === driverID) {
+            basePay = parseInt(cols[2]);
+            tier    = parseInt(cols[3]);
+            break;
+        }
+    }
+
+    // Step 2: Convert actualHours to total seconds
+    let actualParts   = actualHours.trim().split(":").map(Number);
+    let actualSeconds = (actualParts[0] * 3600) + (actualParts[1] * 60) + actualParts[2];
+
+    // Step 3: Convert requiredHours to total seconds
+    let requiredParts   = requiredHours.trim().split(":").map(Number);
+    let requiredSeconds = (requiredParts[0] * 3600) + (requiredParts[1] * 60) + requiredParts[2];
+
+    // Step 4: No deduction if actual >= required
+    if (actualSeconds >= requiredSeconds) {
+        return basePay;
+    }
+
+    // Step 5: Calculate missing seconds
+    let missingSeconds = requiredSeconds - actualSeconds;
+
+    // Step 6: Allowed missing hours per tier
+    let allowedHours;
+    if      (tier === 1) allowedHours = 50;
+    else if (tier === 2) allowedHours = 20;
+    else if (tier === 3) allowedHours = 10;
+    else                 allowedHours = 3; // tier 4
+
+    let allowedSeconds = allowedHours * 3600;
+
+    // Step 7: Subtract allowed buffer
+    let remainingSeconds = missingSeconds - allowedSeconds;
+
+    // Step 8: No deduction if within allowed buffer
+    if (remainingSeconds <= 0) {
+        return basePay;
+    }
+
+    // Step 9: Only FULL hours count for deduction
+    let billableHours = Math.floor(remainingSeconds / 3600);
+
+    // Step 10: Calculate net pay
+    let deductionRatePerHour = Math.floor(basePay / 185);
+    let salaryDeduction      = billableHours * deductionRatePerHour;
+    let netPay               = basePay - salaryDeduction;
+
+    return netPay;
 }
 
 module.exports = {
