@@ -44,7 +44,41 @@ function getShiftDuration(startTime, endTime) {
 // Returns: string formatted as h:mm:ss
 // ============================================================
 function getIdleTime(startTime, endTime) {
-    // TODO: Implement this function
+    function timeToSeconds(timeStr) {
+        timeStr = timeStr.trim();
+        let parts = timeStr.split(" ");
+        let timePart = parts[0];
+        let period = parts[1].toLowerCase();
+        let [hours, minutes, seconds] = timePart.split(":").map(Number);
+        if (period === "pm" && hours !== 12) hours += 12;
+        if (period === "am" && hours === 12) hours = 0;
+        return (hours * 3600) + (minutes * 60) + seconds;
+    }
+
+    let startSeconds  = timeToSeconds(startTime);
+    let endSeconds    = timeToSeconds(endTime);
+    let deliveryStart = 8 * 3600;   // 8:00 AM
+    let deliveryEnd   = 22 * 3600;  // 10:00 PM
+
+    let idleSeconds = 0;
+
+    // Idle BEFORE 8:00 AM
+    if (startSeconds < deliveryStart) {
+        idleSeconds += deliveryStart - startSeconds;
+    }
+
+    // Idle AFTER 10:00 PM
+    if (endSeconds > deliveryEnd) {
+        idleSeconds += endSeconds - deliveryEnd;
+    }
+
+    let h  = Math.floor(idleSeconds / 3600);
+    let m  = Math.floor((idleSeconds % 3600) / 60);
+    let s  = idleSeconds % 60;
+    let mm = m < 10 ? "0" + m : String(m);
+    let ss = s < 10 ? "0" + s : String(s);
+
+    return h + ":" + mm + ":" + ss;
 }
 
 // ============================================================
