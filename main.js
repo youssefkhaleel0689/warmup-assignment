@@ -336,7 +336,68 @@ function getTotalActiveHoursPerMonth(textFile, driverID, month) {
 // Returns: string formatted as hhh:mm:ss
 // ============================================================
 function getRequiredHoursPerMonth(textFile, rateFile, bonusCount, driverID, month) {
-    // TODO: Implement this function
+    // Step 1: Get driver's day off from rateFile
+    let rateContent = fs.readFileSync(rateFile, "utf8");
+    let rateLines = rateContent.split("\n").filter(line => line.trim() !== "");
+
+    let dayOff = "";
+    for (let i = 0; i < rateLines.length; i++) {
+        let cols = rateLines[i].split(",").map(col => col.trim());
+        if (cols[0] === driverID) {
+            dayOff = cols[1].toLowerCase(); // e.g. "friday"
+            break;
+        }
+    }
+
+    // Step 2: Read shift records from textFile
+    let content = fs.readFileSync(textFile, "utf8");
+    let lines = content.split("\n").filter(line => line.trim() !== "");
+
+    let totalSeconds = 0;
+
+    for (let i = 0; i < lines.length; i++) {
+        let cols = lines[i].split(",").map(col => col.trim());
+
+        let rowDriverID = cols[0];
+        let rowDate     = cols[2]; // "yyyy-mm-dd"
+        let rowMonth    = parseInt(rowDate.split("-")[1]);
+        let rowDay      = parseInt(rowDate.split("-")[2]);
+
+        // Only process matching driverID and month
+        if (rowDriverID !== driverID || rowMonth !== month) continue;
+
+        // Step 3: Get day of week
+        // Use "/" instead of "-" to avoid UTC timezone bug
+        let dateObj = new Date(rowDate.replace(/-/g, "/"));
+        let dayName = dateObj.toLocaleDateString("en-US", { weekday: "long" }).toLowerCase();
+
+        // Step 4: Skip if this day is the driver's day off
+        if (dayName === dayOff) continue;
+
+        // Step 5: Check if date is in Eid period (April 10–30 inclusive)
+        let isEid = (rowMonth === 4 && rowDay >= 10 && rowDay <= 30);
+
+        if (isEid) {
+            totalSeconds += 6 * 3600;               // 6 hours
+        } else {
+            totalSeconds += (8 * 3600) + (24 * 60); // 8 hours 24 minutes
+        }
+    }
+
+    // Step 6: Subtract 2 hours per bonus
+    totalSeconds -= bonusCount * 2 * 3600;
+
+    // Never go below 0
+    if (totalSeconds < 0) totalSeconds = 0;
+
+    // Convert to "hhh:mm:ss"
+    let h  = Math.floor(totalSeconds / 3600);
+    let m  = Math.floor((totalSeconds % 3600) / 60);
+    let s  = totalSeconds % 60;
+    let mm = m < 10 ? "0" + m : String(m);
+    let ss = s < 10 ? "0" + s : String(s);
+
+    return h + ":" + mm + ":" + ss;
 }
 
 // ============================================================
