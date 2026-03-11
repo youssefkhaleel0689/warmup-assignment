@@ -142,7 +142,77 @@ function metQuota(date, activeTime) {
 // Returns: object with 10 properties or empty object {}
 // ============================================================
 function addShiftRecord(textFile, shiftObj) {
-    // TODO: Implement this function
+    let driverID   = shiftObj.driverID;
+    let driverName = shiftObj.driverName;
+    let date       = shiftObj.date;
+    let startTime  = shiftObj.startTime;
+    let endTime    = shiftObj.endTime;
+
+    // Read file and split into lines, remove empty ones
+    let content = fs.readFileSync(textFile, "utf8");
+    let lines = content.split("\n").filter(line => line.trim() !== "");
+
+    // Check for duplicate: same driverID AND same date
+    for (let i = 0; i < lines.length; i++) {
+        let cols = lines[i].split(",").map(col => col.trim());
+        if (cols[0] === driverID && cols[2] === date) {
+            return {}; // duplicate → return empty object
+        }
+    }
+
+    // Calculate all fields using previous functions
+    let shiftDuration = getShiftDuration(startTime, endTime);
+    let idleTime      = getIdleTime(startTime, endTime);
+    let activeTime    = getActiveTime(shiftDuration, idleTime);
+    let quota         = metQuota(date, activeTime);
+    let hasBonus      = false;
+
+    // Build the new record object (10 properties)
+    let newRecord = {
+        driverID:      driverID,
+        driverName:    driverName,
+        date:          date,
+        startTime:     startTime,
+        endTime:       endTime,
+        shiftDuration: shiftDuration,
+        idleTime:      idleTime,
+        activeTime:    activeTime,
+        metQuota:      quota,
+        hasBonus:      hasBonus
+    };
+
+    // Format as one CSV line
+    let newLine = driverID + "," +
+                  driverName + "," +
+                  date + "," +
+                  startTime + "," +
+                  endTime + "," +
+                  shiftDuration + "," +
+                  idleTime + "," +
+                  activeTime + "," +
+                  quota + "," +
+                  hasBonus;
+
+    // Find last line index that has the same driverID
+    let insertIndex = -1;
+    for (let i = 0; i < lines.length; i++) {
+        let cols = lines[i].split(",").map(col => col.trim());
+        if (cols[0] === driverID) {
+            insertIndex = i;
+        }
+    }
+
+    // Insert after last occurrence of driverID, or append at end
+    if (insertIndex === -1) {
+        lines.push(newLine);
+    } else {
+        lines.splice(insertIndex + 1, 0, newLine);
+    }
+
+    // Write updated content back to file
+    fs.writeFileSync(textFile, lines.join("\n") + "\n", "utf8");
+
+    return newRecord;
 }
 
 // ============================================================
